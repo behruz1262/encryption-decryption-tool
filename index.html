@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Encryption & Decryption Tool</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/crypto-js@4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsencrypt@3.2.1/bin/jsencrypt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/elliptic@6.5.4/dist/elliptic.min.js"></script>
+    <style>
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .algorithm-card {
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        .algorithm-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+        .algorithm-card.selected {
+            border: 2px solid #4F46E5;
+            background-color: #EEF2FF;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .visualization-container {
+            height: 200px;
+            position: relative;
+        }
+        #caesar-animation, #mono-animation, #aes-animation, 
+        #des-animation, #rsa-animation, #ecc-animation {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        .text-area {
+            min-height: 200px;
+            resize: vertical;
+        }
+        .custom-file-upload {
+            display: inline-block;
+            padding: 8px 12px;
+            cursor: pointer;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            background-color: white;
+        }
+        input[type="file"] {
+            display: none;
+        }
+    </style>
+</head>
+<body class="py-8">
+    <div class="container px-4">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-gray-800 mb-2">Encryption & Decryption Tool</h1>
+            <p class="text-lg text-gray-600">Explore six encryption algorithms from beginner to advanced levels</p>
+        </header>
+
+        <div class="flex flex-col lg:flex-row gap-6 mb-8">
+            <!-- Input Section -->
+            <div class="w-full lg:w-1/2 bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-800">Input</h2>
+                
+                <div class="mb-4">
+                    <label for="operation" class="block text-sm font-medium text-gray-700 mb-1">Operation</label>
+                    <div class="flex gap-2">
+                        <button id="encrypt-btn" class="py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 flex-1">Encrypt</button>
+                        <button id="decrypt-btn" class="py-2 px-4 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 flex-1">Decrypt</button>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <label for="inputText" class="block text-sm font-medium text-gray-700 mb-1">Text Input</label>
+                    <textarea id="inputText" class="text-area w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Enter text to encrypt or decrypt..."></textarea>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">or Upload a Text File</label>
+                    <label class="custom-file-upload">
+                        <input type="file" id="fileInput" accept=".txt">
+                        <span class="flex items-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                            Choose File
+                        </span>
+                    </label>
+                    <p id="fileName" class="mt-1 text-sm text-gray-500">No file selected</p>
+                </div>
+
+                <div id="custom-settings" class="mb-4">
+                    <!-- Custom settings for algorithms will be dynamically inserted here -->
+                    <div id="caesar-settings" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Caesar Cipher Shift</label>
+                        <input type="number" id="caesar-shift" min="1" max="25" value="3" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div id="mono-settings" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Substitution Key (26 unique letters)</label>
+                        <input type="text" id="mono-key" value="QWERTYUIOPASDFGHJKLZXCVBNM" pattern="[A-Za-z]{26}" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <p class="text-sm text-gray-500 mt-1">Key must contain all 26 letters of the alphabet</p>
+                    </div>
+
+                    <div id="aes-settings" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">AES Secret Key</label>
+                        <input type="text" id="aes-key" value="MySecretKey123" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div id="des-settings" class="hidden">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Triple DES Key (24 characters)</label>
+                        <input type="text" id="des-key" value="TrippleDESSecretKey123456" class="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div id="rsa-settings" class="hidden">
+                        <p class="text-sm text-gray-600 mb-2">RSA uses a key pair. For demonstration, we generate a new pair each time.</p>
+                    </div>
+
+                    <div id="ecc-settings" class="hidden">
+                        <p class="text-sm text-gray-600 mb-2">ECC uses elliptic curve key pairs. For demonstration, we generate a new pair each time.</p>
+                    </div>
+                </div>
+                
+                <div class="mb-4">
+                    <button id="process-btn" class="w-full py-2 px-4 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2">Process</button>
+                </div>
+            </div>
+
+            <!-- Output Section -->
+            <div class="w-full lg:w-1/2 bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-2xl font-semibold mb-4 text-gray-800">Output</h2>
+                
+                <div class="mb-4">
+                    <label for="outputText" class="block text-sm font-medium text-gray-700 mb-1">Result</label>
+                    <textarea id="outputText" class="text-area w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="Result will appear here..." readonly></textarea>
+                </div>
+                
+                <div class="mb-4">
+                    <button id="download-btn" class="w-full py-2 px-4 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        <span class="flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Download Result as .txt
+                        </span>
+                    </button>
+                </div>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Processing Information</label>
+                    <div id="process-info" class="bg-gray-100 p-3 rounded-md text-sm text-gray-700 h-32 overflow-y-auto">
+                        Select an algorithm and click "Process" to see information.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Algorithm Selection Section -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Select Encryption Algorithm</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Beginner Level Algorithms -->
+                <div class="col-span-1 md:col-span-2 lg:col-span-3">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Beginner Level</h3>
+                </div>
+                
+                <div data-algorithm="caesar" class="algorithm-card bg-white p-4 rounded-lg shadow-md">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-1">Caesar Cipher</h4>
+                    <p class="text-sm text-gray-600 mb-2">A substitution cipher shifting letters by a fixed number.</p>
+                    <span class="inline-block px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">Simple</span>
+                </div>
+                
+                <div data-algorithm="mono" class="algorithm-card bg-white p-4 rounded-lg shadow-md">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-1">Monoalphabetic Substitution</h4>
+                    <p class="text-sm text-gray-600 mb-2">Each letter is replaced by another letter with a fixed relationship.</p>
+                    <span class="inline-block px-2 py-1 text-xs font-semibold bg-blue-100 text-blue-800 rounded">Simple</span>
+                </div>
+                
+                <!-- Intermediate Level Algorithms -->
+                <div class="col-span-1 md:col-span-2 lg:col-span-3 mt-4">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Intermediate Level</h3>
+                </div>
+                
+                <div data-algorithm="aes" class="algorithm-card bg-white p-4 rounded-lg shadow-md">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-1">AES</h4>
+                    <p class="text-sm text-gray-600 mb-2">Advanced Encryption Standard, a symmetric encryption algorithm.</p>
+                    <span class="inline-block px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded">Intermediate</span>
+                </div>
+                
+                <div data-algorithm="des" class="algorithm-card bg-white p-4 rounded-lg shadow-md">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-1">Triple DES</h4>
+                    <p class="text-sm text-gray-600 mb-2">Applies the Data Encryption Standard algorithm three times to each data block.</p>
+                    <span class="inline-block px-2 py-1 text-xs font-semibold bg-yellow-100 text-yellow-800 rounded">Intermediate</span>
+                </div>
+                
+                <!-- Advanced Level Algorithms -->
+                <div class="col-span-1 md:col-span-2 lg:col-span-3 mt-4">
+                    <h3 class="text-lg font-medium text-gray-700 mb-2">Advanced Level</h3>
+                </div>
+                
+                <div data-algorithm="rsa" class="algorithm-card bg-white p-4 rounded-lg shadow-md">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-1">RSA</h4>
+                    <p class="text-sm text-gray-600 mb-2">Asymmetric cryptography using a public and private key pair.</p>
+                    <span class="inline-block px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded">Advanced</span>
+                </div>
+                
+                <div data-algorithm="ecc" class="algorithm-card bg-white p-4 rounded-lg shadow-md">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-1">ECC</h4>
+                    <p class="text-sm text-gray-600 mb-2">Elliptic Curve Cryptography, uses smaller keys than RSA for equivalent security.</p>
+                    <span class="inline-block px-2 py-1 text-xs font-semibold bg-red-100 text-red-800 rounded">Advanced</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Algorithm Visualization Section -->
+        <section class="mb-12">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Algorithm Visualization</h2>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="visualization-container mb-4">
+                    <div id="caesar-animation">
+                        <h3 class="text-lg font-medium mb-2">Caesar Cipher Visualization</h3>
+                        <canvas id="caesar-canvas" width="600" height="150" class="mx-auto"></canvas>
+                    </div>
+                    
+                    <div id="mono-animation">
+                        <h3 class="text-lg font-medium mb-2">Monoalphabetic Substitution Visualization</h3>
+                        <canvas id="mono-canvas" width="600" height="150" class="mx-auto"></canvas>
+                    </div>
+                    
+                    <div id="aes-animation">
+                        <h3 class="text-lg font-medium mb-2">AES Visualization</h3>
+                        <div class="text-center">
+                            <div class="inline-block p-4 bg-gray-100 rounded-lg text-center">
+                                <div class="grid grid-cols-4 gap-1" id="aes-grid">
+                                    <!-- AES block visualization will be created by JS -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="des-animation">
+                        <h3 class="text-lg font-medium mb-2">Triple DES Visualization</h3>
+                        <div class="flex justify-center space-x-4">
+                            <div class="p-3 bg-gray-100 rounded-lg text-center">
+                                <div class="text-xs font-medium mb-1">DES 1</div>
+                                <div class="w-16 h-16 bg-blue-100 flex items-center justify-center text-blue-700" id="des-block-1">Block</div>
+                            </div>
+                            <div class="flex items-center">→</div>
+                            <div class="p-3 bg-gray-100 rounded-lg text-center">
+                                <div class="text-xs font-medium mb-1">DES 2</div>
+                                <div class="w-16 h-16 bg-indigo-100 flex items-center justify-center text-indigo-700" id="des-block-2">Block</div>
+                            </div>
+                            <div class="flex items-center">→</div>
+                            <div class="p-3 bg-gray-100 rounded-lg text-center">
+                                <div class="text-xs font-medium mb-1">DES 3</div>
+                                <div class="w-16 h-16 bg-purple-100 flex items-center justify-center text-purple-700" id="des-block-3">Block</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="rsa-animation">
+                        <h3 class="text-lg font-medium mb-2">RSA Visualization</h3>
+                        <div class="flex justify-center items-center space-x-6">
+                            <div class="text-center">
+                                <div class="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mb-2">
+                                    <span class="text-green-700 font-medium">Public<br>Key</span>
+                                </div>
+                                <span class="text-xs" id="rsa-public"></span>
+                            </div>
+                            <div class="text-center">
+                                <svg class="w-12 h-12 text-gray-400" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                    <path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mb-2">
+                                    <span class="text-red-700 font-medium">Private<br>Key</span>
+                                </div>
+                                <span class="text-xs" id="rsa-private">*****************</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="ecc-animation">
+                        <h3 class="text-lg font-medium mb-2">ECC Visualization</h3>
+                        <canvas id="ecc-canvas" width="300" height="150" class="mx-auto"></canvas>
+                    </div>
+                </div>
+                
+                <div id="visualization-description" class="text-gray-700 text-sm bg-gray-50 p-4 rounded-md">
+                    Select an algorithm to see its visualization and explanation.
+                </div>
+            </div>
+        </section>
+
+        <!-- Algorithm Explanation Section -->
+        <section class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">How Encryption Algorithms Work</h2>
+            
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Caesar Cipher -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2 text-indigo-800">Caesar Cipher</h3>
+                        <p class="mb-2 text-gray-700">The Caesar Cipher is one of the simplest and most widely known encryption techniques. It's a type of substitution cipher where each letter in the plaintext is replaced by a letter a fixed number of positions down the alphabet.</p>
+                        <div class="bg-gray-100 p-3 rounded-md mb-2">
+                            <p class="text-sm font-medium text-gray-800">Example:</p>
+                            <p class="text-sm text-gray-700">With a shift of 3, A would be replaced by D, B would become E, and so on.</p>
+                            <p class="text-sm text-gray-700">Plaintext: HELLO</p>
+                            <p class="text-sm text-gray-700">Encrypted: KHOOR</p>
+                        </div>
+                        <p class="text-sm text-gray-600">Limited security as there are only 25 possible shifts, making it easy to break through brute force.</p>
+                    </div>
+                    
+                    <!-- Monoalphabetic Substitution -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2 text-indigo-800">Monoalphabetic Substitution</h3>
+                        <p class="mb-2 text-gray-700">In this cipher, each letter of the plaintext is substituted with another letter according to a fixed key. Unlike Caesar, the substitution can be any permutation of the alphabet.</p>
+                        <div class="bg-gray-100 p-3 rounded-md mb-2">
+                            <p class="text-sm font-medium text-gray-800">Example:</p>
+                            <p class="text-sm text-gray-700">Key: QWERTYUIOPASDFGHJKLZXCVBNM</p>
+                            <p class="text-sm text-gray-700">A → Q, B → W, C → E, etc.</p>
+                            <p class="text-sm text-gray-700">Plaintext: HELLO</p>
+                            <p class="text-sm text-gray-700">Encrypted: ITSSG</p>
+                        </div>
+                        <p class="text-sm text-gray-600">More secure than Caesar but vulnerable to frequency analysis.</p>
+                    </div>
+                    
+                    <!-- AES -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2 text-indigo-800">Advanced Encryption Standard (AES)</h3>
+                        <p class="mb-2 text-gray-700">AES is a symmetric block cipher adopted by the U.S. government to protect classified information. It processes data in 128-bit blocks using cryptographic keys of 128, 192, or 256 bits.</p>
+                        <div class="bg-gray-100 p-3 rounded-md mb-2">
+                            <p class="text-sm font-medium text-gray-800">Key Features:</p>
+                            <ul class="list-disc list-inside text-sm text-gray-700">
+                                <li>Symmetric key algorithm (same key for encryption and decryption)</li>
+                                <li>Uses substitution-permutation network</li>
+                                <li>Multiple rounds of transformation (10, 12, or 14 based on key size)</li>
+                            </ul>
+                        </div>
+                        <p class="text-sm text-gray-600">Currently considered highly secure and widely used in various applications.</p>
+                    </div>
+                    
+                    <!-- Triple DES -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2 text-indigo-800">Triple DES</h3>
+                        <p class="mb-2 text-gray-700">Triple DES applies the Data Encryption Standard (DES) cipher algorithm three times to each data block. It was designed to overcome the vulnerabilities of single DES.</p>
+                        <div class="bg-gray-100 p-3 rounded-md mb-2">
+                            <p class="text-sm font-medium text-gray-800">Process:</p>
+                            <ul class="list-disc list-inside text-sm text-gray-700">
+                                <li>Encrypt with key 1</li>
+                                <li>Decrypt with key 2</li>
+                                <li>Encrypt with key 3</li>
+                            </ul>
+                        </div>
+                        <p class="text-sm text-gray-600">Slower than AES but still used in legacy systems and for backward compatibility.</p>
+                    </div>
+                    
+                    <!-- RSA -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2 text-indigo-800">RSA (Rivest-Shamir-Adleman)</h3>
+                        <p class="mb-2 text-gray-700">RSA is an asymmetric encryption algorithm that uses a pair of keys: a public key for encryption and a private key for decryption. Its security is based on the difficulty of factoring large prime numbers.</p>
+                        <div class="bg-gray-100 p-3 rounded-md mb-2">
+                            <p class="text-sm font-medium text-gray-800">Key Principles:</p>
+                            <ul class="list-disc list-inside text-sm text-gray-700">
+                                <li>Generate two large prime numbers</li>
+                                <li>Compute their product (n) and a derived value (φ(n))</li>
+                                <li>Choose a public exponent (e) and calculate a private exponent (d)</li>
+                                <li>Public key: (e, n), Private key: (d, n)</li>
+                            </ul>
+                        </div>
+                        <p class="text-sm text-gray-600">Widely used for secure data transmission and digital signatures.</p>
+                    </div>
+                    
+                    <!-- ECC -->
+                    <div class="mb-6">
+                        <h3 class="text-xl font-semibold mb-2 text-indigo-800">Elliptic Curve Cryptography (ECC)</h3>
+                        <p class="mb-2 text-gray-700">ECC is an approach to public-key cryptography based on the algebraic structure of elliptic curves over finite fields. It offers equivalent security to RSA with much smaller key sizes.</p>
+                        <div class="bg-gray-100 p-3 rounded-md mb-2">
+                            <p class="text-sm font-medium text-gray-800">Advantages:</p>
+                            <ul class="list-disc list-inside text-sm text-gray-700">
+                                <li>Smaller key sizes (256-bit ECC ≈ 3072-bit RSA)</li>
+                                <li>Faster computation</li>
+                                <li>Lower power consumption</li>
+                            </ul>
+                        </div>
+                        <p class="text-sm text-gray-600">Increasingly popular in constrained environments (mobile, IoT) and for future-proofing encryption.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <footer class="text-center text-gray-600 text-sm">
+            <p>Created for educational purposes. Not recommended for securing sensitive information.</p>
+        </footer>
+    </div>
+
+    <script>
+        // Global variables
+        let selectedAlgorithm = null;
+        let isEncrypting = true;
+        let rsaEncryptor = null;
+        let rsaDecryptor = null;
+        let eccKeyPair = null;
+
+        // DOM Elements
+        const algorithmCards = document.querySelectorAll('.algorithm-card');
+        const encryptBtn = document.getElementById('encrypt-btn');
+        const decryptBtn = document.getElementById('decrypt-btn');
+        const processBtn = document.getElementById('process-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const inputText = document.getElementById('inputText');
+        const outputText = document.getElementById('outputText');
+        const fileInput = document.getElementById('fileInput');
+        const fileName = document.getElementById('fileName');
+        const processInfo = document.getElementById('process-info');
+        const customSettings = document.querySelectorAll('[id$="-settings"]');
+        const visualizations = document.querySelectorAll('[id$="-animation"]');
+        const visualizationDesc = document.getElementById('visualization-description');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up algorithm card selection
+            algorithmCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    const algorithm = this.getAttribute('data-algorithm');
+                    selectAlgorithm(algorithm);
+                });
+            });
+
+            // Set up encrypt/decrypt toggle
+            encryptBtn.addEventListener('click', function() {
+                isEncrypting = true;
+                encryptBtn.classList.replace('bg-gray-200', 'bg-indigo-600');
+                encryptBtn.classList.replace('text-gray-800', 'text-white');
+                decryptBtn.classList.replace('bg-indigo-600', 'bg-gray-200');
+                decryptBtn.classList.replace('text-white', 'text-gray-800');
+                updateUI();
+            });
+
+            decryptBtn.addEventListener('click', function() {
+                isEncrypting = false;
+                decryptBtn.classList.replace('bg-gray-200', 'bg-indigo-600');
+                decryptBtn.classList.replace('text-gray-800', 'text-white');
+                encryptBtn.classList.replace('bg-indigo-600', 'bg-gray-200');
+                encryptBtn.classList.replace('text-white', 'text-gray-800');
+                updateUI();
+            });
+
+            // Process button
+            processBtn.addEventListener('click', processText);
+
+            // Download button
+            downloadBtn.addEventListener('click', downloadResult);
+
+            // File input handling
+            fileInput.addEventListener('change', handleFileInput);
+
+            // Initialize animations
+            initAnimations();
+        });
+
+        // Function to select an algorithm
+        function selectAlgorithm(algorithm) {
+            // Remove selected class from all cards
+            algorithmCards.forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            // Add selected class to chosen algorithm
+            document.querySelector(`[data-algorithm="${algorithm}"]`).classList.add('selected');
+            
+            // Update selected algorithm
+            selectedAlgorithm = algorithm;
+            
+            // Show relevant settings
+            customSettings.forEach(setting => {
+                setting.classList.add('hidden');
+            });
+            
+            if (document.getElementById(`${algorithm}-settings`)) {
+                document.getElementById(`${algorithm}-settings`).classList.remove('hidden');
+            }
+            
+            // Show relevant visualization
+            visualizations.forEach(vis => {
+                vis.style.display = 'none';
+            });
+            
+            if (document.getElementById(`${algorithm}-animation`)) {
+                document.getElementById(`${algorithm}-animation`).style.display = 'block';
+                updateVisualization(algorithm);
+            }
+            
+            // Update UI text
+            updateUI();
+        }
+
+        // Function to update UI text based on selected operation and algorithm
+        function updateUI() {
+            // Update process button text
+            processBtn.textContent = isEncrypting ? 'Encrypt' : 'Decrypt';
+            
+            // Update visualization description
+            updateVisualizationDescription();
+        }
+
+        // Function to update visualization description
+        function updateVisualizationDescription() {
+            if (!selectedAlgorithm) {
+                visualizationDesc.textContent = 'Select an algorithm to see its visualization and explanation.';
+                return;
+            }
+            
+            const descriptions = {
+                caesar: 'The Caesar Cipher shifts each letter in the plaintext by a fixed number of positions down the alphabet. The visualization shows how each letter is mapped to another letter in the alphabet.',
+                mono: 'The Monoalphabetic Substitution Cipher replaces each letter with another according to a fixed mapping. The visualization shows this one-to-one mapping between the original and substituted alphabets.',
+                aes: 'AES processes data in fixed-size blocks with multiple rounds of substitution and permutation. The visualization shows how data moves through different transformation stages in the encryption process.',
+                des: 'Triple DES applies three DES operations sequentially (encrypt-decrypt-encrypt) with different keys. The visualization shows how data passes through each of these three stages.',
+                rsa: 'RSA uses a pair of mathematically linked keys. The public key can encrypt data that only the private key can decrypt. The visualization illustrates the asymmetric nature of the key pair.',
+                ecc: 'ECC uses points on an elliptic curve to create cryptographic keys. The visualization shows a simplified elliptic curve and how points on this curve are used in the encryption process.'
+            };
+            
+            visualizationDesc.textContent = descriptions[selectedAlgorithm] || 'Select an algorithm to see its visualization and explanation.';
+        }
+
+        // Function to process text with selected algorithm
+        function processText() {
+            if (!selectedAlgorithm) {
+                processInfo.textContent = 'Please select an algorithm first.';
+                return;
+            }
+            
+            const text = inputText.value.trim();
+            if (!text) {
+                processInfo.textContent = 'Please enter some text to process.';
+                return;
+            }
+            
+            let result = '';
+            let info = '';
+            
+            try {
+                if (isEncrypting) {
+                    switch (selectedAlgorithm) {
+                        case 'caesar':
+                            const shift = parseInt(document.getElementById('caesar-shift').value);
+                            result = caesarCipher(text, shift);
+                            info = `Encrypted with Caesar Cipher using shift of ${shift}.`;
+                            animateCaesar(text, result, shift);
+                            break;
+                        case 'mono':
+                            const key = document.getElementById('mono-key').value.toUpperCase();
+                            if (!/^[A-Z]{26}$/.test(key) || new Set(key.split('')).size !== 26) {
+                                throw new Error('Invalid key. Must contain all 26 letters exactly once.');
+                            }
+                            result = monoalphabeticCipher(text, key);
+                            info = `Encrypted with Monoalphabetic Substitution using key: ${key}`;
+                            animateMono(text, result, key);
+                            break;
+                        case 'aes':
+                            const aesKey = document.getElementById('aes-key').value;
+                            result = CryptoJS.AES.encrypt(text, aesKey).toString();
+                            info = `Encrypted with AES using the provided key.`;
+                            animateAES();
+                            break;
+                        case 'des':
+                            const desKey = document.getElementById('des-key').value;
+                            result = CryptoJS.TripleDES.encrypt(text, desKey).toString();
+                            info = `Encrypted with Triple DES using the provided key.`;
+                            animateDES();
+                            break;
+                        case 'rsa':
+                            if (!rsaEncryptor) {
+                                rsaEncryptor = new JSEncrypt({default_key_size: 512});
+                                const publicKey = rsaEncryptor.getPublicKey();
+                                const privateKey = rsaEncryptor.getPrivateKey();
+                                
+                                // For demonstration, we're storing the private key, but in real applications,
+                                // this should be kept secure and not exposed
+                                rsaDecryptor = new JSEncrypt();
+                                rsaDecryptor.setPrivateKey(privateKey);
+                                
+                                document.getElementById('rsa-public').textContent = 'Generated: ' + publicKey.substring(0, 20) + '...';
+                            }
+                            
+                            result = rsaEncryptor.encrypt(text);
+                            if (!result) throw new Error('RSA encryption failed. Text may be too long for key size.');
+                            info = `Encrypted with RSA using generated key pair.`;
+                            break;
+                        case 'ecc':
+                            if (!eccKeyPair) {
+                                const ec = new elliptic.ec('p256');
+                                eccKeyPair = ec.genKeyPair();
+                                animateECC();
+                            }
+                            
+                            // Simple ECC encryption (For demonstration - real ECC would use ECIES or similar)
+                            // This is a simplified version
+                            const hash = CryptoJS.SHA256(text).toString();
+                            const signature = eccKeyPair.sign(hash);
+                            result = JSON.stringify({
+                                text: text,
+                                signature: {
+                                    r: signature.r.toString(16),
+                                    s: signature.s.toString(16)
+                                }
+                            });
+                            info = `Signed with ECC using generated key pair.`;
+                            break;
+                    }
+                } else {
+                    // Decryption
+                    switch (selectedAlgorithm) {
+                        case 'caesar':
+                            const shift = parseInt(document.getElementById('caesar-shift').value);
+                            result = caesarCipher(text, (26 - shift) % 26);
+                            info = `Decrypted with Caesar Cipher using shift of ${shift}.`;
+                            animateCaesar(text, result, shift, true);
+                            break;
+                        case 'mono':
+                            const key = document.getElementById('mono-key').value.toUpperCase();
+                            if (!/^[A-Z]{26}$/.test(key) || new Set(key.split('')).size !== 26) {
+                                throw new Error('Invalid key. Must contain all 26 letters exactly once.');
+                            }
+                            result = monoalphabeticDecrypt(text, key);
+                            info = `Decrypted with Monoalphabetic Substitution using key: ${key}`;
+                            animateMono(text, result, key, true);
+                            break;
+                        case 'aes':
+                            const aesKey = document.getElementById('aes-key').value;
+                            try {
+                                const bytes = CryptoJS.AES.decrypt(text, aesKey);
+                                result = bytes.toString(CryptoJS.enc.Utf8);
+                                if (!result) throw new Error('Decryption failed');
+                            } catch (e) {
+                                throw new Error('AES decryption failed. Invalid ciphertext or wrong key.');
+                            }
+                            info = `Decrypted with AES using the provided key.`;
+                            animateAES(true);
+                            break;
+                        case 'des':
+                            const desKey = document.getElementById('des-key').value;
+                            try {
+                                const bytes = CryptoJS.TripleDES.decrypt(text, desKey);
+                                result = bytes.toString(CryptoJS.enc.Utf8);
+                                if (!result) throw new Error('Decryption failed');
+                            } catch (e) {
+                                throw new Error('Triple DES decryption failed. Invalid ciphertext or wrong key.');
+                            }
+                            info = `Decrypted with Triple DES using the provided key.`;
+                            animateDES(true);
+                            break;
+                        case 'rsa':
+                            if (!rsaDecryptor) {
+                                throw new Error('No RSA key pair available. Please encrypt a message first.');
+                            }
+                            
+                            result = rsaDecryptor.decrypt(text);
+                            if (!result) throw new Error('RSA decryption failed. Invalid ciphertext or wrong key.');
+                            info = `Decrypted with RSA using private key.`;
+                            break;
+                        case 'ecc':
+                            try {
+                                if (!eccKeyPair) {
+                                    throw new Error('No ECC key pair available. Please encrypt a message first.');
+                                }
+                                
+                                const data = JSON.parse(text);
+                                const hash = CryptoJS.SHA256(data.text).toString();
+                                const signature = {
+                                    r: data.signature.r,
+                                    s: data.signature.s
+                                };
+                                
+                                const ec = new elliptic.ec('p256');
+                                const isValid = eccKeyPair.verify(hash, signature);
+                                
+                                if (isValid) {
+                                    result = data.text;
+                                    info = `ECC signature verified. Message is authentic.`;
+                                } else {
+                                    throw new Error('ECC signature verification failed. Message may be tampered.');
+                                }
+                            } catch (e) {
+                                throw new Error('ECC verification failed. Invalid format or tampered data.');
+                            }
+                            break;
+                    }
+                }
+                
+                outputText.value = result;
+                processInfo.textContent = info;
+                
+            } catch (error) {
+                processInfo.textContent = `Error: ${error.message}`;
+                outputText.value = '';
+            }
+        }
+
+        // Caesar Cipher implementation
+        function caesarCipher(text, shift) {
+            return text.split('').map(char => {
+                if (char.match(/[a-z]/i)) {
+                    const code = char.charCodeAt(0);
+                    let shiftedCode;
+                    
+                    // Uppercase letters
+                    if (code >= 65 && code <= 90) {
+                        shiftedCode = ((code - 65 + shift) % 26) + 65;
+                    }
+                    // Lowercase letters
+                    else if (code >= 97 && code <= 122) {
+                        shiftedCode = ((code - 97 + shift) % 26) + 97;
+                    }
+                    
+                    return String.fromCharCode(shiftedCode);
+                }
+                return char;
+            }).join('');
+        }
+
+        // Monoalphabetic Cipher implementation
+        function monoalphabeticCipher(text, key) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const mapping = {};
+            
+            for (let i = 0; i < 26; i++) {
+                mapping[alphabet[i]] = key[i];
+                mapping[alphabet[i].toLowerCase()] = key[i].toLowerCase();
+            }
+            
+            return text.split('').map(char => {
+                return mapping[char] || char;
+            }).join('');
+        }
+
+        // Monoalphabetic Cipher decryption
+        function monoalphabeticDecrypt(text, key) {
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const mapping = {};
+            
+            for (let i = 0; i < 26; i++) {
+                mapping[key[i]] = alphabet[i];
+                mapping[key[i].toLowerCase()] = alphabet[i].toLowerCase();
+            }
+            
+            return text.split('').map(char => {
+                return mapping[char] || char;
+            }).join('');
+        }
+
+        // Function to handle file input
+        function handleFileInput(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            fileName.textContent = file.name;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                inputText.value = e.target.result;
+            };
+            reader.readAsText(file);
+        }
+
+        // Function to download result as text file
+        function downloadResult() {
+            const text = outputText.value;
+            if (!text) {
+                processInfo.textContent = 'No result to download.';
+                return;
+            }
+            
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${selectedAlgorithm}-${isEncrypting ? 'encrypted' : 'decrypted'}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // Initialize animations
+        function initAnimations() {
+            // Initial animation setup
+            animateCaesar('HELLO', 'KHOOR', 3);
+            animateMono('HELLO', 'ITSSG', 'QWERTYUIOPASDFGHJKLZXCVBNM');
+            animateAES();
+            animateDES();
+            animateECC();
+        }
+
+        // Update visualization for selected algorithm
+        function updateVisualization(algorithm) {
+            switch (algorithm) {
+                case 'caesar':
+                    animateCaesar('HELLO', 'KHOOR', 3);
+                    break;
+                case 'mono':
+                    animateMono('HELLO', 'ITSSG', 'QWERTYUIOPASDFGHJKLZXCVBNM');
+                    break;
+                case 'aes':
+                    animateAES();
+                    break;
+                case 'des':
+                    animateDES();
+                    break;
+                case 'rsa':
+                    // RSA visualization doesn't need animation
+                    break;
+                case 'ecc':
+                    animateECC();
+                    break;
+            }
+        }
+
+        // Caesar Cipher animation
+        function animateCaesar(input, output, shift, isDecrypting = false) {
+            const canvas = document.getElementById('caesar-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const shiftedAlphabet = alphabet.slice(shift) + alphabet.slice(0, shift);
+            
+            // Draw original alphabet
+            ctx.font = '16px monospace';
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            
+            for (let i = 0; i < 26; i++) {
+                ctx.fillText(alphabet[i], 20 + i * 22, 30);
+            }
+            
+            // Draw arrows
+            ctx.fillStyle = '#666';
+            for (let i = 0; i < 26; i++) {
+                ctx.beginPath();
+                ctx.moveTo(20 + i * 22, 40);
+                ctx.lineTo(20 + i * 22, 70);
+                ctx.lineTo(25 + i * 22, 65);
+                ctx.moveTo(20 + i * 22, 70);
+                ctx.lineTo(15 + i * 22, 65);
+                ctx.stroke();
+            }
+            
+            // Draw shifted alphabet
+            ctx.fillStyle = '#3949AB';
+            for (let i = 0; i < 26; i++) {
+                ctx.fillText(isDecrypting ? alphabet[i] : shiftedAlphabet[i], 20 + i * 22, 90);
+            }
+            
+            // Draw example
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Input: ${input}`, 20, 130);
+            ctx.fillStyle = '#3949AB';
+            ctx.fillText(`Output: ${output}`, 20, 150);
+        }
+
+        // Monoalphabetic Substitution animation
+        function animateMono(input, output, key, isDecrypting = false) {
+            const canvas = document.getElementById('mono-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            
+            // Draw original alphabet
+            ctx.font = '16px monospace';
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'center';
+            
+            for (let i = 0; i < 26; i++) {
+                ctx.fillText(alphabet[i], 20 + i * 22, 30);
+            }
+            
+            // Draw arrows
+            ctx.fillStyle = '#666';
+            for (let i = 0; i < 26; i++) {
+                ctx.beginPath();
+                ctx.moveTo(20 + i * 22, 40);
+                ctx.lineTo(20 + i * 22, 70);
+                ctx.lineTo(25 + i * 22, 65);
+                ctx.moveTo(20 + i * 22, 70);
+                ctx.lineTo(15 + i * 22, 65);
+                ctx.stroke();
+            }
+            
+            // Draw substitution alphabet
+            ctx.fillStyle = '#3949AB';
+            for (let i = 0; i < 26; i++) {
+                ctx.fillText(isDecrypting ? alphabet[i] : key[i], 20 + i * 22, 90);
+            }
+            
+            // Draw example
+            ctx.fillStyle = '#333';
+            ctx.textAlign = 'left';
+            ctx.fillText(`Input: ${input}`, 20, 130);
+            ctx.fillStyle = '#3949AB';
+            ctx.fillText(`Output: ${output}`, 20, 150);
+        }
+
+        // AES animation
+        function animateAES(isDecrypting = false) {
+            const aesGrid = document.getElementById('aes-grid');
+            aesGrid.innerHTML = '';
+            
+            // Create a 4x4 grid representing AES state
+            for (let i = 0; i < 16; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'w-10 h-10 bg-blue-100 text-center flex items-center justify-center text-xs font-mono rounded';
+                cell.textContent = isDecrypting ? String.fromCharCode(65 + i) : (Math.floor(Math.random() * 16)).toString(16).toUpperCase();
+                
+                if (!isDecrypting) {
+                    // Animate cells for encryption
+                    setTimeout(() => {
+                        cell.style.transition = 'all 0.5s ease';
+                        cell.style.backgroundColor = '#C5CAE9';
+                        cell.textContent = String.fromCharCode(65 + i);
+                    }, 100 + i * 50);
+                } else {
+                    // Animate cells for decryption
+                    setTimeout(() => {
+                        cell.style.transition = 'all 0.5s ease';
+                        cell.style.backgroundColor = '#BBDEFB';
+                        cell.textContent = (Math.floor(Math.random() * 16)).toString(16).toUpperCase();
+                    }, 100 + i * 50);
+                }
+                
+                aesGrid.appendChild(cell);
+            }
+        }
+
+        // Triple DES animation
+        function animateDES(isDecrypting = false) {
+            const blocks = [
+                document.getElementById('des-block-1'),
+                document.getElementById('des-block-2'),
+                document.getElementById('des-block-3')
+            ];
+            
+            const stages = isDecrypting ? ['Decrypt', 'Encrypt', 'Decrypt'] : ['Encrypt', 'Decrypt', 'Encrypt'];
+            const colors = ['#BBDEFB', '#C5CAE9', '#D1C4E9'];
+            
+            blocks.forEach((block, index) => {
+                block.textContent = 'Data';
+                block.style.transition = 'none';
+                block.style.backgroundColor = '#E3F2FD';
+                
+                setTimeout(() => {
+                    block.style.transition = 'all 0.5s ease';
+                    block.style.backgroundColor = colors[index];
+                    block.textContent = stages[index];
+                }, 500 + index * 500);
+            });
+        }
+
+        // ECC animation
+        function animateECC() {
+            const canvas = document.getElementById('ecc-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw a simple elliptic curve y² = x³ + ax + b
+            ctx.beginPath();
+            ctx.strokeStyle = '#3949AB';
+            ctx.lineWidth = 2;
+            
+            for (let x = -1; x <= 1; x += 0.01) {
+                const a = 1;
+                const b = 1;
+                const y2 = Math.pow(x, 3) + a * x + b;
+                
+                if (y2 >= 0) {
+                    const y = Math.sqrt(y2);
+                    const scaledX = (x + 1.5) * (canvas.width / 3);
+                    const scaledY1 = canvas.height / 2 - y * 40;
+                    const scaledY2 = canvas.height / 2 + y * 40;
+                    
+                    if (x === -1) {
+                        ctx.moveTo(scaledX, scaledY1);
+                    } else {
+                        ctx.lineTo(scaledX, scaledY1);
+                    }
+                }
+            }
+            
+            for (let x = 1; x >= -1; x -= 0.01) {
+                const a = 1;
+                const b = 1;
+                const y2 = Math.pow(x, 3) + a * x + b;
+                
+                if (y2 >= 0) {
+                    const y = Math.sqrt(y2);
+                    const scaledX = (x + 1.5) * (canvas.width / 3);
+                    const scaledY = canvas.height / 2 + y * 40;
+                    
+                    ctx.lineTo(scaledX, scaledY);
+                }
+            }
+            
+            ctx.stroke();
+            
+            // Draw two points on the curve (simplified)
+            const pointsX = [0.8, -0.5];
+            const a = 1;
+            const b = 1;
+            
+            pointsX.forEach((x, index) => {
+                const y2 = Math.pow(x, 3) + a * x + b;
+                if (y2 >= 0) {
+                    const y = Math.sqrt(y2) * (index % 2 === 0 ? 1 : -1);
+                    const scaledX = (x + 1.5) * (canvas.width / 3);
+                    const scaledY = canvas.height / 2 - y * 40;
+                    
+                    ctx.beginPath();
+                    ctx.arc(scaledX, scaledY, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = index === 0 ? '#4CAF50' : '#F44336';
+                    ctx.fill();
+                    
+                    ctx.font = '12px Arial';
+                    ctx.fillStyle = '#333';
+                    ctx.fillText(index === 0 ? 'G (Generator)' : 'P (Public)', scaledX + 8, scaledY);
+                }
+            });
+            
+            // Draw a connecting line between points (representing scalar multiplication)
+            const x1 = (pointsX[0] + 1.5) * (canvas.width / 3);
+            const y1 = canvas.height / 2 - Math.sqrt(Math.pow(pointsX[0], 3) + a * pointsX[0] + b) * 40;
+            const x2 = (pointsX[1] + 1.5) * (canvas.width / 3);
+            const y2 = canvas.height / 2 + Math.sqrt(Math.pow(pointsX[1], 3) + a * pointsX[1] + b) * 40;
+            
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.strokeStyle = '#4a148c66';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 2]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+    </script>
+</body>
+</html>
